@@ -795,39 +795,59 @@ const Scaling = {
   dpr: 1,
   cssWidth: 0,
   cssHeight: 0,
+  scale: 1,
+  offsetX: 0,
+  offsetY: 0,
+  // Current logical bounds (what's visible beyond the 720x900 area)
+  view: { minX: 0, minY: 0, maxX: 720, maxY: 900, width: 720, height: 900 },
 
   init() {
     this.resize();
-    window.addEventListener('resize', () => this.resize());
+    window.addEventListener('resize', () => this.resize(), { passive: true });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', () => this.resize(), { passive: true });
+      window.visualViewport.addEventListener('scroll', () => this.resize(), { passive: true });
+    }
   },
 
   resize() {
     this.dpr = window.devicePixelRatio || 1;
+    const vw = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+    const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
 
-    const maxW = Math.min(window.innerWidth - 20, CONFIG.LOGICAL_WIDTH);
-    const maxH = Math.min(window.innerHeight - 20, CONFIG.LOGICAL_HEIGHT);
-    const scale = Math.min(maxW / CONFIG.LOGICAL_WIDTH, maxH / CONFIG.LOGICAL_HEIGHT);
+    // Set CSS size
+    this.cssWidth = Math.floor(vw);
+    this.cssHeight = Math.floor(vh);
 
-    this.cssWidth = Math.floor(CONFIG.LOGICAL_WIDTH * scale);
-    this.cssHeight = Math.floor(CONFIG.LOGICAL_HEIGHT * scale);
-
-    canvas.style.width = `${this.cssWidth}px`;
-    canvas.style.height = `${this.cssHeight}px`;
-
+    // Set backing store size
     canvas.width = Math.floor(this.cssWidth * this.dpr);
     canvas.height = Math.floor(this.cssHeight * this.dpr);
 
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.scale(
-      (this.cssWidth * this.dpr) / CONFIG.LOGICAL_WIDTH,
-      (this.cssHeight * this.dpr) / CONFIG.LOGICAL_HEIGHT
-    );
+    // Calculate scale to fit the 720x900 logical area
+    this.scale = Math.min(canvas.width / CONFIG.LOGICAL_WIDTH, canvas.height / CONFIG.LOGICAL_HEIGHT);
+    
+    // Center the logical area
+    this.offsetX = (canvas.width - CONFIG.LOGICAL_WIDTH * this.scale) * 0.5;
+    this.offsetY = (canvas.height - CONFIG.LOGICAL_HEIGHT * this.scale) * 0.5;
+
+    // Update logical view bounds
+    this.view.minX = -this.offsetX / this.scale;
+    this.view.minY = -this.offsetY / this.scale;
+    this.view.maxX = (canvas.width - this.offsetX) / this.scale;
+    this.view.maxY = (canvas.height - this.offsetY) / this.scale;
+    this.view.width = this.view.maxX - this.view.minX;
+    this.view.height = this.view.maxY - this.view.minY;
+
+    // Apply transform
+    ctx.setTransform(this.scale, 0, 0, this.scale, this.offsetX, this.offsetY);
   },
 
   pointerToLogical(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
-    _tempVec.x = ((clientX - rect.left) / rect.width) * CONFIG.LOGICAL_WIDTH;
-    _tempVec.y = ((clientY - rect.top) / rect.height) * CONFIG.LOGICAL_HEIGHT;
+    const xPx = (clientX - rect.left) * (canvas.width / rect.width);
+    const yPx = (clientY - rect.top) * (canvas.height / rect.height);
+    _tempVec.x = (xPx - this.offsetX) / this.scale;
+    _tempVec.y = (yPx - this.offsetY) / this.scale;
     return _tempVec;
   },
 };
@@ -1340,11 +1360,15 @@ const Input = {
   },
 
   _hitTestPauseButton(x, y) {
-    return Utils.distSq(x, y, CONFIG.LOGICAL_WIDTH - 50, 70) <= 25 * 25;
+    const v = Scaling.view;
+    const hudY = Math.max(v.minY + 20, 15);
+    return Utils.distSq(x, y, CONFIG.LOGICAL_WIDTH - 50, hudY + 55) <= 25 * 25;
   },
 
   _hitTestMuteButton(x, y) {
-    return Utils.distSq(x, y, CONFIG.LOGICAL_WIDTH - 100, 70) <= 25 * 25;
+    const v = Scaling.view;
+    const hudY = Math.max(v.minY + 20, 15);
+    return Utils.distSq(x, y, CONFIG.LOGICAL_WIDTH - 100, hudY + 55) <= 25 * 25;
   },
 };
 
@@ -1353,10 +1377,9 @@ const Input = {
 // ═══════════════════════════════════════════════════════════════════════════
 const Renderer = {
   draw(ts) {
-    const W = CONFIG.LOGICAL_WIDTH;
-    const H = CONFIG.LOGICAL_HEIGHT;
+    const v = Scaling.view;
 
-    ctx.clearRect(0, 0, W, H);
+    ctx.clearRect(v.minX, v.minY, v.width, v.height);
 
     // Apply screen shake
     ctx.save();
@@ -1393,54 +1416,56 @@ const Renderer = {
   },
 
   _drawBackground(ts) {
-    const W = CONFIG.LOGICAL_WIDTH;
-    const H = CONFIG.LOGICAL_HEIGHT;
+    const v = Scaling.view;
 
-    // Gradient background
-    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    // Gradient background fills the entire logical view
+    const grad = ctx.createLinearGradient(0, v.minY, 0, v.maxY);
     grad.addColorStop(0, CONFIG.COLORS.BG_GRADIENT_TOP);
     grad.addColorStop(1, CONFIG.COLORS.BG_GRADIENT_BOTTOM);
     ctx.fillStyle = grad;
-    ctx.fillRect(-20, -20, W + 40, H + 40);
+    ctx.fillRect(v.minX - 50, v.minY - 50, v.width + 100, v.height + 100);
 
     // Stars/particles
     BgParticles.draw(ctx);
 
     // Subtle vignette
-    const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.8);
+    const vignette = ctx.createRadialGradient(
+      CONFIG.LOGICAL_WIDTH / 2, CONFIG.LOGICAL_HEIGHT / 2, CONFIG.LOGICAL_HEIGHT * 0.3, 
+      CONFIG.LOGICAL_WIDTH / 2, CONFIG.LOGICAL_HEIGHT / 2, CONFIG.LOGICAL_HEIGHT * 1.2
+    );
     vignette.addColorStop(0, 'rgba(0,0,0,0)');
-    vignette.addColorStop(1, 'rgba(0,0,0,0.4)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.5)');
     ctx.fillStyle = vignette;
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillRect(v.minX, v.minY, v.width, v.height);
   },
 
   _drawGround() {
-    const W = CONFIG.LOGICAL_WIDTH;
-    const H = CONFIG.LOGICAL_HEIGHT;
+    const v = Scaling.view;
     const groundY = CONFIG.GRID_TOP_OFFSET - 40;
 
     // Ground gradient
-    const grad = ctx.createLinearGradient(0, groundY, 0, H);
+    const grad = ctx.createLinearGradient(0, groundY, 0, v.maxY);
     grad.addColorStop(0, CONFIG.COLORS.GROUND_LIGHT);
     grad.addColorStop(0.3, CONFIG.COLORS.GROUND_DARK);
     grad.addColorStop(1, '#1a2a18');
     ctx.fillStyle = grad;
     
-    // Wavy ground
+    // Wavy ground across full width
     ctx.beginPath();
-    ctx.moveTo(-20, groundY);
-    for (let x = 0; x <= W + 20; x += 40) {
+    ctx.moveTo(v.minX - 50, groundY);
+    for (let x = v.minX - 50; x <= v.maxX + 50; x += 40) {
       const wave = Math.sin(x * 0.02) * 15;
       ctx.lineTo(x, groundY + wave);
     }
-    ctx.lineTo(W + 20, H + 20);
-    ctx.lineTo(-20, H + 20);
+    ctx.lineTo(v.maxX + 50, v.maxY + 50);
+    ctx.lineTo(v.minX - 50, v.maxY + 50);
     ctx.closePath();
     ctx.fill();
 
     // Grass tufts
     ctx.fillStyle = CONFIG.COLORS.GRASS_LIGHT;
-    for (let x = 20; x < W; x += 60) {
+    const startX = Math.floor(v.minX / 60) * 60;
+    for (let x = startX; x < v.maxX; x += 60) {
       const baseY = groundY + Math.sin(x * 0.02) * 15;
       this._drawGrass(x, baseY, 8 + Math.sin(x) * 3);
     }
@@ -1685,32 +1710,34 @@ const Renderer = {
   },
 
   _drawHUD(ts) {
+    const v = Scaling.view;
     const W = CONFIG.LOGICAL_WIDTH;
+    const hudY = Math.max(v.minY + 20, 15);
 
     // HUD background
     ctx.fillStyle = CONFIG.COLORS.HUD_BG;
-    this._roundedRect(15, 15, W - 30, 90, 16);
+    this._roundedRect(15, hudY, W - 30, 90, 16);
     ctx.fill();
 
     // Border glow
     ctx.strokeStyle = CONFIG.COLORS.PANEL_BORDER;
     ctx.lineWidth = 1;
-    this._roundedRect(15, 15, W - 30, 90, 16);
+    this._roundedRect(15, hudY, W - 30, 90, 16);
     ctx.stroke();
 
     ctx.textBaseline = 'middle';
 
-    // Score with glow
+    // Score
     ctx.fillStyle = CONFIG.COLORS.HUD_TEXT;
     ctx.font = 'bold 28px system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(`${Game.score}`, 35, 60);
+    ctx.fillText(`${Game.score}`, 35, hudY + 45);
 
-    // Combo indicator
+    // Combo
     if (Game.combo > 1 && Game.state === State.PLAYING) {
       ctx.fillStyle = CONFIG.COLORS.GOLDEN_ACCENT;
       ctx.font = 'bold 18px system-ui';
-      ctx.fillText(`x${Game.getComboMultiplier()} COMBO`, 35, 88);
+      ctx.fillText(`x${Game.getComboMultiplier()} COMBO`, 35, hudY + 73);
     }
 
     // Lives
@@ -1721,7 +1748,7 @@ const Renderer = {
       const filled = i < Game.lives;
       ctx.fillStyle = filled ? CONFIG.COLORS.DANGER : 'rgba(255,255,255,0.2)';
       ctx.font = '24px system-ui';
-      ctx.fillText('♥', heartX, 60);
+      ctx.fillText('♥', heartX, hudY + 45);
     }
 
     // Time
@@ -1732,26 +1759,28 @@ const Renderer = {
     ctx.textAlign = 'right';
     ctx.fillStyle = isWarning ? CONFIG.COLORS.DANGER : CONFIG.COLORS.HUD_TEXT;
     ctx.font = `bold ${Math.floor(26 * timePulse)}px system-ui`;
-    ctx.fillText(Utils.formatTime(Game.timeLeftMs), W - 120, 60);
+    ctx.fillText(Utils.formatTime(Game.timeLeftMs), W - 120, hudY + 45);
 
     // Mute button
+    const muteX = W - 100, muteY = hudY + 55;
     ctx.fillStyle = AudioManager.muted ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.6)';
     ctx.beginPath();
-    ctx.arc(W - 100, 70, 18, 0, Math.PI * 2);
+    ctx.arc(muteX, muteY, 18, 0, Math.PI * 2);
     ctx.fill();
     ctx.font = '16px system-ui';
     ctx.textAlign = 'center';
     ctx.fillStyle = CONFIG.COLORS.BG_GRADIENT_TOP;
-    ctx.fillText(AudioManager.muted ? '🔇' : '🔊', W - 100, 71);
+    ctx.fillText(AudioManager.muted ? '🔇' : '🔊', muteX, muteY + 1);
 
     // Pause button
+    const pauseX = W - 50, pauseY = hudY + 55;
     ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.beginPath();
-    ctx.arc(W - 50, 70, 18, 0, Math.PI * 2);
+    ctx.arc(pauseX, pauseY, 18, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = CONFIG.COLORS.BG_GRADIENT_TOP;
-    ctx.fillRect(W - 57, 62, 5, 16);
-    ctx.fillRect(W - 48, 62, 5, 16);
+    ctx.fillRect(pauseX - 7, pauseY - 8, 5, 16);
+    ctx.fillRect(pauseX + 2, pauseY - 8, 5, 16);
 
     ctx.textAlign = 'left';
   },
