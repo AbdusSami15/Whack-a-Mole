@@ -10,13 +10,18 @@
 const CONFIG = {
   // Canvas logical dimensions (scaled for devicePixelRatio)
   LOGICAL_WIDTH: 720,
-  LOGICAL_HEIGHT: 900,
+  LOGICAL_HEIGHT: 1080, // Increased height for better vertical spacing
+
+  // UI Spacing
+  HUD_MARGIN: 24,
+  HUD_HEIGHT: 80,
+  HUD_INNER_PADDING: 30,
 
   // Grid
   GRID_ROWS: 3,
   GRID_COLS: 3,
   GRID_PADDING: 70,
-  GRID_TOP_OFFSET: 140,
+  GRID_TOP_OFFSET: 280, // Pushed down to leave room for HUD + neutral zone
 
   // Game timing
   GAME_DURATION_MS: 60000,
@@ -86,14 +91,13 @@ const CONFIG = {
 
   // Colors
   COLORS: {
-    BG_GRADIENT_TOP: '#1a1f35',
-    BG_GRADIENT_BOTTOM: '#0d1117',
-    GROUND_LIGHT: '#3d5c3a',
-    GROUND_DARK: '#2a4028',
-    GRASS_LIGHT: '#5a8f54',
-    GRASS_DARK: '#3d6b38',
-    HUD_BG: 'rgba(0,0,0,0.4)',
-    HUD_TEXT: '#ffffff',
+    BG_GRADIENT_TOP: '#0f172a',
+    BG_GRADIENT_BOTTOM: '#1e293b',
+    GROUND_LIGHT: '#2d4a2a',
+    GROUND_DARK: '#1a2e18',
+    HUD_BG: 'rgba(15, 23, 42, 0.8)',
+    HUD_BORDER: 'rgba(78, 205, 196, 0.4)',
+    HUD_TEXT: '#f8fafc',
     HUD_ACCENT: '#4ecdc4',
     HOLE_OUTER: '#4a3728',
     HOLE_INNER: '#1a1210',
@@ -104,25 +108,25 @@ const CONFIG = {
     MOLE_NOSE: '#4a3525',
     MOLE_EYES: '#1b1b1b',
     MOLE_CHEEKS: '#d4a574',
-    GOLDEN_BODY: '#ffd700',
-    GOLDEN_FACE: '#fff8dc',
-    GOLDEN_GLOW: 'rgba(255, 215, 0, 0.3)',
-    BOMB_BODY: '#333333',
-    BOMB_FUSE: '#ff4444',
-    BOMB_GLOW: 'rgba(255, 68, 68, 0.3)',
+    GOLDEN_BODY: '#fcd34d',
+    GOLDEN_FACE: '#fef3c7',
+    GOLDEN_GLOW: 'rgba(252, 211, 77, 0.3)',
+    BOMB_BODY: '#334155',
+    BOMB_FUSE: '#f43f5e',
+    BOMB_GLOW: 'rgba(244, 63, 94, 0.3)',
     HIT_FLASH: 'rgba(255,255,255,0.9)',
-    OVERLAY_BG: 'rgba(0,0,0,0.75)',
-    PANEL_BG: 'rgba(20,25,40,0.95)',
+    OVERLAY_BG: 'rgba(15, 23, 42, 0.85)',
+    PANEL_BG: 'rgba(30, 41, 59, 0.98)',
     PANEL_BORDER: 'rgba(78, 205, 196, 0.3)',
     PANEL_GLOW: 'rgba(78, 205, 196, 0.1)',
     ACCENT: '#4ecdc4',
     ACCENT_DARK: '#3ba99c',
-    GOLDEN_ACCENT: '#ffd700',
-    DANGER: '#ff6b6b',
-    PARTICLE_NORMAL: ['#ff6b6b', '#4ecdc4', '#ffe66d', '#95e1d3', '#a8e6cf'],
-    PARTICLE_GOLDEN: ['#ffd700', '#ffed4a', '#fff8dc', '#f6e05e', '#fbbf24'],
-    PARTICLE_BOMB: ['#ff4444', '#ff6666', '#aa2222', '#ff8888'],
-    CONFETTI: ['#ff6b6b', '#4ecdc4', '#ffe66d', '#a8e6cf', '#ffd700', '#ff9ff3', '#48dbfb'],
+    GOLDEN_ACCENT: '#fcd34d',
+    DANGER: '#f43f5e',
+    PARTICLE_NORMAL: ['#f43f5e', '#4ecdc4', '#fcd34d', '#2dd4bf', '#a5f3fc'],
+    PARTICLE_GOLDEN: ['#fcd34d', '#fbbf24', '#f59e0b', '#d97706', '#b45309'],
+    PARTICLE_BOMB: ['#f43f5e', '#e11d48', '#be123c', '#9f1239', '#881337'],
+    CONFETTI: ['#f43f5e', '#4ecdc4', '#fcd34d', '#2dd4bf', '#fb7185', '#38bdf8', '#818cf8'],
   },
 
   // Storage keys
@@ -799,7 +803,7 @@ const Scaling = {
   offsetX: 0,
   offsetY: 0,
   // Current logical bounds (what's visible beyond the 720x900 area)
-  view: { minX: 0, minY: 0, maxX: 720, maxY: 900, width: 720, height: 900 },
+  view: { minX: 0, minY: 0, maxX: 720, maxY: 1080, width: 720, height: 1080 },
 
   init() {
     this.resize();
@@ -823,7 +827,7 @@ const Scaling = {
     canvas.width = Math.floor(this.cssWidth * this.dpr);
     canvas.height = Math.floor(this.cssHeight * this.dpr);
 
-    // Calculate scale to fit the 720x900 logical area
+    // Calculate scale to fit the logical area
     this.scale = Math.min(canvas.width / CONFIG.LOGICAL_WIDTH, canvas.height / CONFIG.LOGICAL_HEIGHT);
     
     // Center the logical area
@@ -1361,14 +1365,18 @@ const Input = {
 
   _hitTestPauseButton(x, y) {
     const v = Scaling.view;
-    const hudY = Math.max(v.minY + 20, 15);
-    return Utils.distSq(x, y, CONFIG.LOGICAL_WIDTH - 50, hudY + 55) <= 25 * 25;
+    const margin = 24;
+    const hudY = Math.max(v.minY + margin, margin);
+    const centerY = hudY + 72 / 2;
+    return Utils.distSq(x, y, CONFIG.LOGICAL_WIDTH - margin - 30 - 20, centerY) <= 22 * 22;
   },
 
   _hitTestMuteButton(x, y) {
     const v = Scaling.view;
-    const hudY = Math.max(v.minY + 20, 15);
-    return Utils.distSq(x, y, CONFIG.LOGICAL_WIDTH - 100, hudY + 55) <= 25 * 25;
+    const margin = 24;
+    const hudY = Math.max(v.minY + margin, margin);
+    const centerY = hudY + 72 / 2;
+    return Utils.distSq(x, y, CONFIG.LOGICAL_WIDTH - margin - 30 - 70, centerY) <= 22 * 22;
   },
 };
 
@@ -1441,20 +1449,18 @@ const Renderer = {
 
   _drawGround() {
     const v = Scaling.view;
-    const groundY = CONFIG.GRID_TOP_OFFSET - 40;
+    const groundY = CONFIG.GRID_TOP_OFFSET - 60;
 
-    // Ground gradient
     const grad = ctx.createLinearGradient(0, groundY, 0, v.maxY);
     grad.addColorStop(0, CONFIG.COLORS.GROUND_LIGHT);
-    grad.addColorStop(0.3, CONFIG.COLORS.GROUND_DARK);
-    grad.addColorStop(1, '#1a2a18');
+    grad.addColorStop(0.4, CONFIG.COLORS.GROUND_DARK);
+    grad.addColorStop(1, CONFIG.COLORS.BG_GRADIENT_TOP);
     ctx.fillStyle = grad;
     
-    // Wavy ground across full width
     ctx.beginPath();
     ctx.moveTo(v.minX - 50, groundY);
-    for (let x = v.minX - 50; x <= v.maxX + 50; x += 40) {
-      const wave = Math.sin(x * 0.02) * 15;
+    for (let x = v.minX - 50; x <= v.maxX + 50; x += 60) {
+      const wave = Math.sin(x * 0.015) * 20;
       ctx.lineTo(x, groundY + wave);
     }
     ctx.lineTo(v.maxX + 50, v.maxY + 50);
@@ -1462,12 +1468,11 @@ const Renderer = {
     ctx.closePath();
     ctx.fill();
 
-    // Grass tufts
-    ctx.fillStyle = CONFIG.COLORS.GRASS_LIGHT;
-    const startX = Math.floor(v.minX / 60) * 60;
-    for (let x = startX; x < v.maxX; x += 60) {
-      const baseY = groundY + Math.sin(x * 0.02) * 15;
-      this._drawGrass(x, baseY, 8 + Math.sin(x) * 3);
+    ctx.fillStyle = 'rgba(78, 205, 196, 0.15)';
+    const startX = Math.floor(v.minX / 80) * 80;
+    for (let x = startX; x < v.maxX; x += 80) {
+      const baseY = groundY + Math.sin(x * 0.015) * 20;
+      this._drawGrass(x, baseY, 12 + Math.sin(x) * 5);
     }
   },
 
@@ -1481,33 +1486,23 @@ const Renderer = {
 
   _drawHoles() {
     for (const h of holes) {
-      // Dirt mound
       const moundGrad = ctx.createRadialGradient(h.cx, h.cy + h.r * 0.3, 0, h.cx, h.cy + h.r * 0.3, h.r * 1.3);
-      moundGrad.addColorStop(0, '#5a4a3a');
-      moundGrad.addColorStop(0.6, '#4a3a2a');
+      moundGrad.addColorStop(0, 'rgba(74, 55, 40, 0.8)');
+      moundGrad.addColorStop(0.6, 'rgba(58, 42, 30, 0.4)');
       moundGrad.addColorStop(1, 'transparent');
       ctx.fillStyle = moundGrad;
       ctx.beginPath();
       ctx.ellipse(h.cx, h.cy + h.r * 0.3, h.r * 1.3, h.r * 0.8, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Hole rim
       ctx.beginPath();
       ctx.ellipse(h.cx, h.cy, h.r, h.r * 0.6, 0, 0, Math.PI * 2);
       ctx.fillStyle = CONFIG.COLORS.HOLE_RIM;
       ctx.fill();
 
-      // Inner hole
       ctx.beginPath();
       ctx.ellipse(h.cx, h.cy, h.r * 0.85, h.r * 0.5, 0, 0, Math.PI * 2);
       ctx.fillStyle = CONFIG.COLORS.HOLE_INNER;
-      ctx.fill();
-
-      // Hole depth gradient
-      const depthGrad = ctx.createLinearGradient(h.cx, h.cy - h.r * 0.3, h.cx, h.cy + h.r * 0.3);
-      depthGrad.addColorStop(0, 'rgba(0,0,0,0.3)');
-      depthGrad.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = depthGrad;
       ctx.fill();
 
       if (CONFIG.DEBUG) {
@@ -1527,14 +1522,12 @@ const Renderer = {
     const y = getMoleAnimatedY(m, now);
     const hole = holes[m.holeIndex];
 
-    // Clip to hole area for hiding effect
     ctx.save();
     ctx.beginPath();
     ctx.ellipse(hole.cx, hole.cy, hole.r * 0.85, hole.r * 0.5, 0, 0, Math.PI * 2);
     ctx.rect(hole.cx - hole.r, hole.cy - hole.r * 2, hole.r * 2, hole.r * 2);
     ctx.clip();
 
-    // Hit effects
     let flashAlpha = 0;
     let scale = 1;
     if (m.hit) {
@@ -1550,7 +1543,6 @@ const Renderer = {
     ctx.translate(m.baseX, y);
     ctx.scale(scale, scale);
 
-    // Glow for special moles
     if (m.type === MoleType.GOLDEN && !m.hit) {
       ctx.shadowColor = CONFIG.COLORS.GOLDEN_GLOW;
       ctx.shadowBlur = 20;
@@ -1559,7 +1551,6 @@ const Renderer = {
       ctx.shadowBlur = 15;
     }
 
-    // Body colors based on type
     let bodyColor, faceColor, bodyDark;
     if (m.type === MoleType.GOLDEN) {
       bodyColor = CONFIG.COLORS.GOLDEN_BODY;
@@ -1567,15 +1558,14 @@ const Renderer = {
       bodyDark = '#c9a800';
     } else if (m.type === MoleType.BOMB) {
       bodyColor = CONFIG.COLORS.BOMB_BODY;
-      faceColor = '#555';
-      bodyDark = '#222';
+      faceColor = '#64748b';
+      bodyDark = '#1e293b';
     } else {
       bodyColor = CONFIG.COLORS.MOLE_BODY;
       faceColor = CONFIG.COLORS.MOLE_FACE;
       bodyDark = CONFIG.COLORS.MOLE_BODY_DARK;
     }
 
-    // Main body
     const r = m.radius;
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
@@ -1587,29 +1577,24 @@ const Renderer = {
 
     ctx.shadowBlur = 0;
 
-    // Ears
     ctx.fillStyle = bodyDark;
     ctx.beginPath();
     ctx.arc(-r * 0.6, -r * 0.6, r * 0.25, 0, Math.PI * 2);
     ctx.arc(r * 0.6, -r * 0.6, r * 0.25, 0, Math.PI * 2);
     ctx.fill();
 
-    // Face/snout
     ctx.beginPath();
     ctx.ellipse(0, r * 0.2, r * 0.5, r * 0.4, 0, 0, Math.PI * 2);
     ctx.fillStyle = faceColor;
     ctx.fill();
 
-    // Nose
     if (m.type === MoleType.BOMB) {
-      // Fuse for bomb
       ctx.strokeStyle = CONFIG.COLORS.BOMB_FUSE;
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(0, -r * 0.8);
       ctx.quadraticCurveTo(r * 0.3, -r * 1.1, 0, -r * 1.2);
       ctx.stroke();
-      // Spark
       const sparkSize = 4 + Math.sin(now * 0.02) * 2;
       ctx.fillStyle = '#ff4';
       ctx.beginPath();
@@ -1620,20 +1605,13 @@ const Renderer = {
       ctx.ellipse(0, r * 0.05, r * 0.15, r * 0.12, 0, 0, Math.PI * 2);
       ctx.fillStyle = CONFIG.COLORS.MOLE_NOSE;
       ctx.fill();
-      // Nose highlight
-      ctx.beginPath();
-      ctx.arc(-r * 0.04, r * 0.02, r * 0.04, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255,255,255,0.3)';
-      ctx.fill();
     }
 
-    // Eyes
     const eyeY = -r * 0.15;
     const eyeSpacing = r * 0.25;
     const eyeSize = r * 0.12;
 
     if (m.hit) {
-      // X eyes when hit
       ctx.strokeStyle = CONFIG.COLORS.MOLE_EYES;
       ctx.lineWidth = 3;
       ctx.lineCap = 'round';
@@ -1647,46 +1625,13 @@ const Renderer = {
         ctx.stroke();
       });
     } else {
-      // Normal eyes
       ctx.fillStyle = CONFIG.COLORS.MOLE_EYES;
       ctx.beginPath();
       ctx.arc(-eyeSpacing, eyeY, eyeSize, 0, Math.PI * 2);
       ctx.arc(eyeSpacing, eyeY, eyeSize, 0, Math.PI * 2);
       ctx.fill();
-      // Eye highlights
-      ctx.fillStyle = 'rgba(255,255,255,0.6)';
-      ctx.beginPath();
-      ctx.arc(-eyeSpacing - 2, eyeY - 2, eyeSize * 0.4, 0, Math.PI * 2);
-      ctx.arc(eyeSpacing - 2, eyeY - 2, eyeSize * 0.4, 0, Math.PI * 2);
-      ctx.fill();
     }
 
-    // Cheeks (not for bombs)
-    if (m.type !== MoleType.BOMB) {
-      ctx.fillStyle = CONFIG.COLORS.MOLE_CHEEKS;
-      ctx.globalAlpha = 0.4;
-      ctx.beginPath();
-      ctx.ellipse(-r * 0.4, r * 0.15, r * 0.12, r * 0.08, 0, 0, Math.PI * 2);
-      ctx.ellipse(r * 0.4, r * 0.15, r * 0.12, r * 0.08, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = 1;
-    }
-
-    // Whiskers (not for bombs)
-    if (m.type !== MoleType.BOMB) {
-      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-      ctx.lineWidth = 1;
-      [-1, 1].forEach(side => {
-        for (let i = 0; i < 3; i++) {
-          ctx.beginPath();
-          ctx.moveTo(side * r * 0.25, r * 0.1 + i * 4);
-          ctx.lineTo(side * r * 0.6, r * 0.05 + i * 6 - 5);
-          ctx.stroke();
-        }
-      });
-    }
-
-    // Flash overlay
     if (flashAlpha > 0) {
       ctx.globalAlpha = flashAlpha * 0.7;
       ctx.beginPath();
@@ -1698,91 +1643,92 @@ const Renderer = {
 
     ctx.restore();
     ctx.restore();
-
-    // Debug hitbox
-    if (CONFIG.DEBUG) {
-      ctx.strokeStyle = '#0f0';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(m.baseX, y, m.radius, 0, Math.PI * 2);
-      ctx.stroke();
-    }
   },
 
   _drawHUD(ts) {
     const v = Scaling.view;
     const W = CONFIG.LOGICAL_WIDTH;
-    const hudY = Math.max(v.minY + 20, 15);
+    const margin = 24;
+    const h = 72;
+    const hudY = Math.max(v.minY + margin, margin);
 
-    // HUD background
-    ctx.fillStyle = CONFIG.COLORS.HUD_BG;
-    this._roundedRect(15, hudY, W - 30, 90, 16);
+    // 1. Glass Container
+    ctx.save();
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 20;
+    this._roundedRect(margin, hudY, W - margin * 2, h, 16);
     ctx.fill();
-
-    // Border glow
-    ctx.strokeStyle = CONFIG.COLORS.PANEL_BORDER;
-    ctx.lineWidth = 1;
-    this._roundedRect(15, hudY, W - 30, 90, 16);
+    
+    // Glowing border
+    ctx.strokeStyle = 'rgba(78, 205, 196, 0.4)';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
+    ctx.restore();
 
     ctx.textBaseline = 'middle';
 
+    // 2. Proportional Spacing Layout
+    const leftX = margin + 30;
+    const rightX = W - margin - 30;
+    const centerY = hudY + h / 2;
+
     // Score
-    ctx.fillStyle = CONFIG.COLORS.HUD_TEXT;
-    ctx.font = 'bold 28px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = '900 36px system-ui';
     ctx.textAlign = 'left';
-    ctx.fillText(`${Game.score}`, 35, hudY + 45);
+    ctx.fillText(`${Game.score}`, leftX, centerY);
 
-    // Combo
-    if (Game.combo > 1 && Game.state === State.PLAYING) {
-      ctx.fillStyle = CONFIG.COLORS.GOLDEN_ACCENT;
-      ctx.font = 'bold 18px system-ui';
-      ctx.fillText(`x${Game.getComboMultiplier()} COMBO`, 35, hudY + 73);
-    }
-
-    // Lives
-    ctx.textAlign = 'center';
-    const livesX = W / 2;
+    // Hearts (Center)
+    const heartsCenterX = W / 2;
     for (let i = 0; i < CONFIG.INITIAL_LIVES; i++) {
-      const heartX = livesX - 30 + i * 30;
+      const x = heartsCenterX - (CONFIG.INITIAL_LIVES - 1) * 22 + i * 44;
       const filled = i < Game.lives;
-      ctx.fillStyle = filled ? CONFIG.COLORS.DANGER : 'rgba(255,255,255,0.2)';
-      ctx.font = '24px system-ui';
-      ctx.fillText('♥', heartX, hudY + 45);
+      ctx.fillStyle = filled ? '#f43f5e' : 'rgba(255,255,255,0.1)';
+      ctx.font = filled ? '30px system-ui' : '26px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('♥', x, centerY);
     }
 
-    // Time
+    // Group: Timer + Buttons (Fixed Distance from Right)
+    const timerX = rightX - 120;
     const secsLeft = Math.ceil(Game.timeLeftMs / 1000);
     const isWarning = secsLeft <= 10 && Game.state === State.PLAYING;
-    const timePulse = isWarning ? 0.8 + Math.sin(ts * 0.01) * 0.2 : 1;
+    const timePulse = isWarning ? 1 + Math.sin(ts * 0.01) * 0.1 : 1;
 
     ctx.textAlign = 'right';
-    ctx.fillStyle = isWarning ? CONFIG.COLORS.DANGER : CONFIG.COLORS.HUD_TEXT;
-    ctx.font = `bold ${Math.floor(26 * timePulse)}px system-ui`;
-    ctx.fillText(Utils.formatTime(Game.timeLeftMs), W - 120, hudY + 45);
+    ctx.fillStyle = isWarning ? '#f43f5e' : '#f8fafc';
+    ctx.font = `900 ${Math.floor(32 * timePulse)}px system-ui`;
+    ctx.fillText(Utils.formatTime(Game.timeLeftMs), timerX, centerY);
 
-    // Mute button
-    const muteX = W - 100, muteY = hudY + 55;
-    ctx.fillStyle = AudioManager.muted ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.6)';
+    // Mute/Pause Buttons
+    this._drawHUDButton(rightX - 70, centerY, AudioManager.muted ? '🔇' : '🔊', AudioManager.muted);
+    this._drawHUDButton(rightX - 20, centerY, Game.state === State.PAUSED ? '▶' : '‖');
+
+    // Combo indicator below HUD
+    if (Game.combo > 1 && Game.state === State.PLAYING) {
+      ctx.fillStyle = '#fcd34d';
+      ctx.font = '900 16px system-ui';
+      ctx.textAlign = 'left';
+      ctx.fillText(`🔥 ${Game.getComboMultiplier()}X COMBO`, leftX, hudY + h + 18);
+    }
+  },
+
+  _drawHUDButton(x, y, icon, isActive = false) {
+    const r = 20;
     ctx.beginPath();
-    ctx.arc(muteX, muteY, 18, 0, Math.PI * 2);
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = isActive ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)';
     ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = '#fff';
     ctx.font = '16px system-ui';
     ctx.textAlign = 'center';
-    ctx.fillStyle = CONFIG.COLORS.BG_GRADIENT_TOP;
-    ctx.fillText(AudioManager.muted ? '🔇' : '🔊', muteX, muteY + 1);
-
-    // Pause button
-    const pauseX = W - 50, pauseY = hudY + 55;
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.beginPath();
-    ctx.arc(pauseX, pauseY, 18, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = CONFIG.COLORS.BG_GRADIENT_TOP;
-    ctx.fillRect(pauseX - 7, pauseY - 8, 5, 16);
-    ctx.fillRect(pauseX + 2, pauseY - 8, 5, 16);
-
-    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(icon, x, y);
   },
 
   _drawStartScreen(ts) {
