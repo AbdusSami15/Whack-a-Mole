@@ -53,6 +53,15 @@
       overflow: hidden;
     }
 
+    /* Ensure background is solid when in browser fullscreen mode */
+    :fullscreen .wrap,
+    :-webkit-full-screen .wrap,
+    :-moz-full-screen .wrap {
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+    }
+
     canvas {
       display: block;
       /* On mobile, canvas fills the container */

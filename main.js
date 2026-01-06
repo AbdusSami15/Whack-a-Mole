@@ -1306,6 +1306,7 @@ const Input = {
     if (Game.state === State.GAME_OVER) {
       // Only restart after a short delay to prevent accidental restarts
       if (ts - Game.stateEnterTime > 500) {
+        this._requestFullscreen();
         Game.startCountdown(ts);
       }
       return;
@@ -1360,8 +1361,10 @@ const Input = {
     }
     if (e.key === ' ' || e.key === 'Enter') {
       if (Game.state === State.START) {
+        this._requestFullscreen();
         Game.startCountdown(ts);
       } else if (Game.state === State.GAME_OVER && ts - Game.stateEnterTime > 500) {
+        this._requestFullscreen();
         Game.startCountdown(ts);
       }
     }
@@ -1384,6 +1387,11 @@ const Input = {
   },
 
   _requestFullscreen() {
+    // Only request if not already in fullscreen
+    if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement) {
+      return;
+    }
+
     const el = document.documentElement;
     try {
       if (el.requestFullscreen) el.requestFullscreen();
