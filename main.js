@@ -1372,18 +1372,20 @@ const Input = {
 
   _hitTestPauseButton(x, y) {
     const v = Scaling.view;
-    const margin = 24;
+    const margin = 20;
+    const h = 64;
     const hudY = v.minY + margin;
-    const centerY = hudY + 72 / 2;
-    return Utils.distSq(x, y, CONFIG.LOGICAL_WIDTH - margin - 30 - 20, centerY) <= 22 * 22;
+    const centerY = hudY + h / 2;
+    return Utils.distSq(x, y, CONFIG.LOGICAL_WIDTH - margin - 25 - 20, centerY) <= 20 * 20;
   },
 
   _hitTestMuteButton(x, y) {
     const v = Scaling.view;
-    const margin = 24;
+    const margin = 20;
+    const h = 64;
     const hudY = v.minY + margin;
-    const centerY = hudY + 72 / 2;
-    return Utils.distSq(x, y, CONFIG.LOGICAL_WIDTH - margin - 30 - 70, centerY) <= 22 * 22;
+    const centerY = hudY + h / 2;
+    return Utils.distSq(x, y, CONFIG.LOGICAL_WIDTH - margin - 25 - 60, centerY) <= 20 * 20;
   },
 
   _requestFullscreen() {
@@ -1672,90 +1674,197 @@ const Renderer = {
   _drawHUD(ts) {
     const v = Scaling.view;
     const W = CONFIG.LOGICAL_WIDTH;
-    const margin = 24;
-    const h = 72;
-    
-    // Pin HUD exactly to the top of the visible screen (mobile viewport)
-    // v.minY is the logical coordinate of the top edge of the device screen
+    const margin = 20;
+    const h = 64; // Slimmer, more compact HUD
     const hudY = v.minY + margin;
 
-    // 1. Glass Container
+    // 1. Enhanced Glass Container
     ctx.save();
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-    ctx.shadowColor = 'rgba(0,0,0,0.4)';
-    ctx.shadowBlur = 20;
-    this._roundedRect(margin, hudY, W - margin * 2, h, 16);
+    // Inner Glow/Refraction effect
+    const hudGrad = ctx.createLinearGradient(0, hudY, 0, hudY + h);
+    hudGrad.addColorStop(0, 'rgba(30, 41, 59, 0.9)');
+    hudGrad.addColorStop(1, 'rgba(15, 23, 42, 0.95)');
+    
+    ctx.fillStyle = hudGrad;
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 15;
+    ctx.shadowOffsetY = 4;
+    this._roundedRect(margin, hudY, W - margin * 2, h, 12);
     ctx.fill();
     
-    // Glowing border
-    ctx.strokeStyle = 'rgba(78, 205, 196, 0.4)';
-    ctx.lineWidth = 1.5;
+    // Multi-layered border for "Premium" look
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    ctx.strokeStyle = 'rgba(78, 205, 196, 0.3)';
+    ctx.lineWidth = 1;
     ctx.stroke();
     ctx.restore();
 
     ctx.textBaseline = 'middle';
 
-    // 2. Proportional Spacing Layout
-    const leftX = margin + 30;
-    const rightX = W - margin - 30;
+    // 2. Element Positioning (Distance-based)
+    const leftX = margin + 25;
+    const rightX = W - margin - 25;
     const centerY = hudY + h / 2;
 
-    // Score
-    ctx.fillStyle = '#f8fafc';
-    ctx.font = '900 36px system-ui';
+    // --- SCORE GROUP (Left) ---
     ctx.textAlign = 'left';
-    ctx.fillText(`${Game.score}`, leftX, centerY);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '700 14px system-ui';
+    ctx.fillText('SCORE', leftX, centerY - 14);
+    
+    ctx.fillStyle = '#fff';
+    ctx.font = '900 32px system-ui';
+    ctx.fillText(`${Game.score}`, leftX, centerY + 8);
 
-    // Hearts (Center)
+    // --- LIVES GROUP (Center) ---
     const heartsCenterX = W / 2;
+    const heartSpacing = 34;
+    const heartSize = 24;
     for (let i = 0; i < CONFIG.INITIAL_LIVES; i++) {
-      const x = heartsCenterX - (CONFIG.INITIAL_LIVES - 1) * 22 + i * 44;
+      const x = heartsCenterX - ((CONFIG.INITIAL_LIVES - 1) * heartSpacing) / 2 + i * heartSpacing;
       const filled = i < Game.lives;
-      ctx.fillStyle = filled ? '#f43f5e' : 'rgba(255,255,255,0.1)';
-      ctx.font = filled ? '30px system-ui' : '26px system-ui';
+      
+      // Shadow for hearts
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.font = `${heartSize}px system-ui`;
       ctx.textAlign = 'center';
+      ctx.fillText('♥', x, centerY + 2);
+      
+      // Heart color
+      ctx.fillStyle = filled ? '#f43f5e' : 'rgba(255,255,255,0.15)';
+      ctx.font = `${filled ? heartSize : heartSize - 4}px system-ui`;
       ctx.fillText('♥', x, centerY);
     }
 
-    // Group: Timer + Buttons (Fixed Distance from Right)
-    const timerX = rightX - 120;
+    // --- TIME & BUTTONS GROUP (Right) ---
+    // Timer
+    const timerX = rightX - 110;
     const secsLeft = Math.ceil(Game.timeLeftMs / 1000);
     const isWarning = secsLeft <= 10 && Game.state === State.PLAYING;
     const timePulse = isWarning ? 1 + Math.sin(ts * 0.01) * 0.1 : 1;
 
     ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '700 14px system-ui';
+    ctx.fillText('TIME', timerX, centerY - 14);
+
     ctx.fillStyle = isWarning ? '#f43f5e' : '#f8fafc';
-    ctx.font = `900 ${Math.floor(32 * timePulse)}px system-ui`;
-    ctx.fillText(Utils.formatTime(Game.timeLeftMs), timerX, centerY);
+    ctx.font = `900 ${Math.floor(28 * timePulse)}px system-ui`;
+    ctx.fillText(Utils.formatTime(Game.timeLeftMs), timerX, centerY + 8);
 
-    // Mute/Pause Buttons
-    this._drawHUDButton(rightX - 70, centerY, AudioManager.muted ? '🔇' : '🔊', AudioManager.muted);
-    this._drawHUDButton(rightX - 20, centerY, Game.state === State.PAUSED ? '▶' : '‖');
+    // Separator line
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.beginPath();
+    ctx.moveTo(rightX - 95, centerY - 15);
+    ctx.lineTo(rightX - 95, centerY + 15);
+    ctx.stroke();
 
-    // Combo indicator below HUD
+    // Buttons
+    this._drawHUDButton(rightX - 60, centerY, 'mute', AudioManager.muted);
+    this._drawHUDButton(rightX - 20, centerY, Game.state === State.PAUSED ? 'play' : 'pause');
+
+    // Combo (Floating badge)
     if (Game.combo > 1 && Game.state === State.PLAYING) {
-      ctx.fillStyle = '#fcd34d';
-      ctx.font = '900 16px system-ui';
-      ctx.textAlign = 'left';
-      ctx.fillText(`🔥 ${Game.getComboMultiplier()}X COMBO`, leftX, hudY + h + 18);
+      this._drawComboBadge(leftX, hudY + h + 15);
     }
   },
 
-  _drawHUDButton(x, y, icon, isActive = false) {
-    const r = 20;
+  _drawComboBadge(x, y) {
+    const text = `${Game.getComboMultiplier()}X COMBO`;
+    ctx.font = '900 14px system-ui';
+    const tw = ctx.measureText(text).width;
+    const pad = 12;
+    
+    ctx.fillStyle = '#fcd34d';
+    this._roundedRect(x, y - 10, tw + pad * 2, 24, 6);
+    ctx.fill();
+    
+    ctx.fillStyle = '#0f172a';
+    ctx.textAlign = 'left';
+    ctx.fillText(text, x + pad, y + 2);
+  },
+
+  _drawHUDButton(x, y, type, isActive = false) {
+    const r = 18;
+    ctx.save();
+    
+    // 1. Button Base (Glass Circle)
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = isActive ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)';
+    
+    // Subtle gradient for depth
+    const grad = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
+    grad.addColorStop(1, 'rgba(255, 255, 255, 0.05)');
+    
+    ctx.fillStyle = isActive ? 'rgba(255, 255, 255, 0.05)' : grad;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    
+    // Crisp border
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    ctx.fillStyle = '#fff';
-    ctx.font = '16px system-ui';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(icon, x, y);
+    // 2. Vector Icons (Manual drawing for perfect sharpness/proportions)
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    if (type === 'pause') {
+      const w = 4;
+      const h = 12;
+      const gap = 4;
+      ctx.fillRect(x - gap / 2 - w, y - h / 2, w, h);
+      ctx.fillRect(x + gap / 2, y - h / 2, w, h);
+    } else if (type === 'play') {
+      const s = 12; // size
+      ctx.beginPath();
+      ctx.moveTo(x - s / 3, y - s / 2);
+      ctx.lineTo(x + (s * 2) / 3, y);
+      ctx.lineTo(x - s / 3, y + s / 2);
+      ctx.closePath();
+      ctx.fill();
+    } else if (type === 'mute') {
+      const s = 14;
+      // Speaker body
+      ctx.beginPath();
+      ctx.moveTo(x - s/2, y - s/4);
+      ctx.lineTo(x - s/4, y - s/4);
+      ctx.lineTo(x + s/8, y - s/2);
+      ctx.lineTo(x + s/8, y + s/2);
+      ctx.lineTo(x - s/4, y + s/4);
+      ctx.lineTo(x - s/2, y + s/4);
+      ctx.closePath();
+      ctx.fill();
+
+      if (isActive) {
+        // Mute 'X'
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x + s/4, y - s/4);
+        ctx.lineTo(x + s/2, y + s/4);
+        ctx.moveTo(x + s/2, y - s/4);
+        ctx.lineTo(x + s/4, y + s/4);
+        ctx.stroke();
+      } else {
+        // Sound waves
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(x + s/8, y, s/4, -Math.PI/3, Math.PI/3);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x + s/8, y, s/2, -Math.PI/3, Math.PI/3);
+        ctx.stroke();
+      }
+    }
+
+    ctx.restore();
   },
 
   _drawStartScreen(ts) {
