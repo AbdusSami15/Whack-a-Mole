@@ -808,6 +808,8 @@ const Scaling = {
   init() {
     this.resize();
     window.addEventListener('resize', () => this.resize(), { passive: true });
+    document.addEventListener('fullscreenchange', () => this.resize());
+    document.addEventListener('webkitfullscreenchange', () => this.resize());
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', () => this.resize(), { passive: true });
       window.visualViewport.addEventListener('scroll', () => this.resize(), { passive: true });
@@ -1295,6 +1297,8 @@ const Input = {
     const ts = performance.now();
 
     if (Game.state === State.START) {
+      // Attempt to enter fullscreen on first tap
+      this._requestFullscreen();
       Game.startCountdown(ts);
       return;
     }
@@ -1366,7 +1370,7 @@ const Input = {
   _hitTestPauseButton(x, y) {
     const v = Scaling.view;
     const margin = 24;
-    const hudY = Math.max(v.minY + margin, margin);
+    const hudY = v.minY + margin;
     const centerY = hudY + 72 / 2;
     return Utils.distSq(x, y, CONFIG.LOGICAL_WIDTH - margin - 30 - 20, centerY) <= 22 * 22;
   },
@@ -1374,9 +1378,21 @@ const Input = {
   _hitTestMuteButton(x, y) {
     const v = Scaling.view;
     const margin = 24;
-    const hudY = Math.max(v.minY + margin, margin);
+    const hudY = v.minY + margin;
     const centerY = hudY + 72 / 2;
     return Utils.distSq(x, y, CONFIG.LOGICAL_WIDTH - margin - 30 - 70, centerY) <= 22 * 22;
+  },
+
+  _requestFullscreen() {
+    const el = document.documentElement;
+    try {
+      if (el.requestFullscreen) el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
+      else if (el.msRequestFullscreen) el.msRequestFullscreen();
+    } catch (err) {
+      console.warn('Fullscreen request failed:', err);
+    }
   },
 };
 
@@ -1650,7 +1666,10 @@ const Renderer = {
     const W = CONFIG.LOGICAL_WIDTH;
     const margin = 24;
     const h = 72;
-    const hudY = Math.max(v.minY + margin, margin);
+    
+    // Pin HUD exactly to the top of the visible screen (mobile viewport)
+    // v.minY is the logical coordinate of the top edge of the device screen
+    const hudY = v.minY + margin;
 
     // 1. Glass Container
     ctx.save();
